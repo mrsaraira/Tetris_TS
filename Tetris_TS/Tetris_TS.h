@@ -18,8 +18,8 @@ class Tetris_TS : public BaseApp
 	int mCurrentPiece;
 	int mNextPiece;
 	int mNextOrient;
-	int mCurX; //Current line
-	int mCurY; //Current column
+	int mCurX; //Current column
+	int mCurY; //Current line
 	int mScore;
 	int rotation;	
 public:
