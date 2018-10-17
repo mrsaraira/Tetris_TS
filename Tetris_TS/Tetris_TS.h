@@ -7,10 +7,11 @@
 #define WIN_WIDTH  30
 #define SHAPE_NUM  6
 
+
 class Tetris_TS : public BaseApp
 {
 	typedef BaseApp Parent;
-	string mShapes[SHAPE_NUM];
+	string mShapes[SHAPE_NUM] ;
 	wchar_t buffer[WIN_HEIGHT][WIN_WIDTH];
 	bool mCollision;
 	bool mDownForce; // Down arrow
@@ -27,9 +28,12 @@ public:
 	virtual void KeyPressed(int btnCode);
 	virtual void UpdateF(float deltaTime);
 	int  Rotate(int sx, int sy, int angle); // returns the rotated coordinate
-	bool CollisionTest(int nx, int ny);
+	bool CollisionTest(int nx, int ny, int rot=-1);
 	void LineCheck();
-	void Draw(int completeLine = -1);
-
+	void Draw();
+	void InitBuffer();
+	void UpdateScore();
+	void UpdateNPiece();
+	void WriteToBuffer();
 };
 
