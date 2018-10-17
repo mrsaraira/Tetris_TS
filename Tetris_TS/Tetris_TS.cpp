@@ -1,7 +1,8 @@
-﻿#include "Tetris_TS.h"
+#include "Tetris_TS.h"
 #define _CRT_SECURE_NO_WARNINGS 1
 #pragma warning(disable:4996)
-
+wchar_t SCORE[7] = L"Score:";
+wchar_t ISOCRE[7] = L"0";
 Tetris_TS::Tetris_TS() : Parent(WIN_WIDTH, WIN_HEIGHT)
 {
 	// 4x4 size shapes
@@ -30,15 +31,26 @@ Tetris_TS::Tetris_TS() : Parent(WIN_WIDTH, WIN_HEIGHT)
 											  ..X.
 											  ..X.
 											  .XX.*/
+	memset(buffer, 0, sizeof(buffer));
 	srand(time(0));
 	mCollision = mDownForce = mGameOver = false;
 	mCurrentPiece = rand() % 5;
-	mNextPiece = (rand() +rand()/7 ) % 5;
+	mNextPiece = (rand() + rand() / 7) % 5;
 	mNextOrient = (rand() + 2018) % 4;
 	rotation = rand() % 4;
-	mScore =0;
+	mScore = 0;
 	mCurY = 1;
 	mCurX = 7;
+	//Initial buffer
+	for (int y = 0; y < WIN_HEIGHT; y++)
+		for (int x = 0; x < WIN_WIDTH - 13; x++)
+			if (x == 0 || x == 16 || y == 21) // 22*15 boarders
+				SetChar(x, y, '#');
+			else
+				SetChar(x, y, '.');
+	WriteToBuffer();
+	UpdateScore();
+	UpdateNPiece();
 }
 
 void Tetris_TS::KeyPressed(int btnCode) {
@@ -61,11 +73,10 @@ void Tetris_TS::KeyPressed(int btnCode) {
 			mCurX++;
 		break;
 	case 32: //Space
-		if (!CollisionTest(mCurX, mCurY))
+		if (!CollisionTest(mCurX, mCurY, ((rotation + 1) % 4)))
 			((rotation += 1) % 4);
 		break;
 	default:
-
 		break;
 	}
 }
@@ -94,6 +105,7 @@ void Tetris_TS::UpdateF(float deltaTime) {
 int  Tetris_TS::Rotate(int sx, int sy, int angle) {
 	int si(0); //block index
 	switch (angle % 4) {
+
 	case 0: // 0 degrees		
 		si = sy * 4 + sx;				// 0  1  2  3
 		break;							// 4  5  6  7
@@ -116,12 +128,15 @@ int  Tetris_TS::Rotate(int sx, int sy, int angle) {
 	return si;							// 0  4  8 12
 }
 
-bool Tetris_TS::CollisionTest(int nx, int ny) {
-
+bool Tetris_TS::CollisionTest(int nx, int ny, int rot) {
+	int si(0);
 	for (int y = 0; y < 4; y++) {
 		for (int x = 0; x < 4; x++)
 		{
-			int si = Rotate(x, y, rotation); //index of the piece
+			if (rot>=0)
+				 si = Rotate(x, y, rotation); //index of the piece
+			else 
+				 si = Rotate(x, y, rotation);
 			if (nx + x >= 0 && nx + x < WIN_WIDTH - 13)
 			{
 				if (ny + y >= 0 && ny + y < WIN_HEIGHT)
@@ -135,6 +150,10 @@ bool Tetris_TS::CollisionTest(int nx, int ny) {
 						{
 							return true;
 						}
+						if ((mShapes[mCurrentPiece][si] == 'X') && ((buffer[ny + y][nx + x] == '.')))
+						{
+							return true;
+						}
 						mCollision = true;
 						return true; // collision detected
 					}
@@ -145,72 +164,30 @@ bool Tetris_TS::CollisionTest(int nx, int ny) {
 	return false;
 }
 
-void Tetris_TS::Draw(int completeLine) {
-	wchar_t score[7] = L"score:";
-	wchar_t iscore[7] = L"0";
-	static bool firstIteration = true; //start reading from buffer flag
-	_itow(mScore, iscore, 10);
+void Tetris_TS::Draw() {
 
-	//if complete line found
-	if (completeLine >= 0) {
-		for (int x = 1; x < 16; x++)
-			buffer[completeLine][x] = '.';
-		for (int y = completeLine - 1; y > 0; y--)
-			for (int x = 1; x < 16; x++) {
-				if (buffer[y][x] == 'X')
-				{
-					buffer[y + 1][x] = buffer[y][x];
-					buffer[y][x] = '.';
-				}
-			}
-	}
-	//Draw score//
-	for (int i = 0; i < 7; i++) {
-		buffer[1][18 + i] = score[i];
-		if (iswdigit(iscore[i]))
-			buffer[2][25 + i] = iscore[i];
-	}
+	//Write buffer to console
+	for (int y = 0; y < WIN_HEIGHT; y++)
+		for (int x = 0; x < WIN_WIDTH; x++)
+			SetChar(x, y, buffer[y][x]);
 
-	//Display next piece
-	for (int y = 0; y < 4; y++)
+	//Draw next tetris piece//
+	for (int y = 0; y < 4; y++) {
 		for (int x = 0; x < 4; x++)
-			buffer[7 + y][WIN_HEIGHT + x] = ((mShapes[mNextPiece][Rotate(x, y, mNextOrient)] == '.') ? ' ' : 'X');
-
-	//Draw field//
-	if (firstIteration) { // one-time iteration
-		for (int y = 0; y < WIN_HEIGHT; y++)
-			for (int x = 0; x < WIN_WIDTH - 13; x++)
-				if (x == 0 || x == 16 || y == 21) // boarders
-					SetChar(x, y, '#');
+		{
+			if ((mShapes[mCurrentPiece][Rotate(x, y, rotation)] == '.') && (GetChar(mCurX + x, mCurY + y) == '#'))
+				SetChar(mCurX + x, mCurY + y, '#');
+			else
+				if ((mShapes[mCurrentPiece][Rotate(x, y, rotation)] == '.') && (GetChar(mCurX + x, mCurY + y) == 'X'))
+					SetChar(mCurX + x, mCurY + y, 'X');
 				else
-					SetChar(x, y, '.');
-		mCollision = true;
-	}
-	else {	//Draw from buffer
-		for (int y = 0; y < WIN_HEIGHT; y++)
-			for (int x = 0; x < WIN_WIDTH; x++)
-				SetChar(x, y, buffer[y][x]);
-	}
-	//Draw piece//
-	if (!firstIteration) // dont draw at first iteration
-		for (int y = 0; y < 4; y++) {
-			for (int x = 0; x < 4; x++)
-			{
-				if ((mShapes[mCurrentPiece][Rotate(x, y, rotation)] == '.') && (GetChar(mCurX + x, mCurY + y) == '#'))
-					SetChar(mCurX + x, mCurY + y, '#');
-				else
-					if ((mShapes[mCurrentPiece][Rotate(x, y, rotation)] == '.') && (GetChar(mCurX + x, mCurY + y) == 'X'))
-						SetChar(mCurX + x, mCurY + y, 'X');
-					else
-						SetChar(mCurX + x, mCurY + y, ((mShapes[mCurrentPiece][Rotate(x, y, rotation)] == '.') ? '.' : 'X'));
-			}
+					SetChar(mCurX + x, mCurY + y, ((mShapes[mCurrentPiece][Rotate(x, y, rotation)] == '.') ? '.' : 'X'));
 		}
+	}
 
-	//Lock pieces if collision detected and create a new piece
+	//Lock pieces if collision detected and create a new one
 	if (mCollision) {
-		for (int y = 0; y < WIN_HEIGHT; y++)
-			for (int x = 0; x < WIN_WIDTH; x++)
-				buffer[y][x] = GetChar(x, y);
+		WriteToBuffer(); // Save scene to buffer
 		mCollision = mDownForce = false;
 		mCurY = 0;
 		mCurX = 7;
@@ -219,12 +196,13 @@ void Tetris_TS::Draw(int completeLine) {
 		srand(time(0));
 		mNextOrient = rand() % 4;
 		mNextPiece = rand() % 5;
-		firstIteration = false;
-		LineCheck();
+		UpdateNPiece();
+		LineCheck(); // check for complete lines
 	}
 }
 
 void Tetris_TS::LineCheck() {
+	int oldscore = mScore;
 	int lines(0), counter(0);
 	for (int y = 0; y < WIN_HEIGHT; y++) {
 		for (int x = 0; x < 16; x++) {
@@ -234,9 +212,45 @@ void Tetris_TS::LineCheck() {
 		if (counter == 15)
 		{
 			lines++;
-			Draw(y);
+			//if a completed line found
+				for (int x = 1; x < 16; x++)
+					buffer[y][x] = '.';
+				for (int i = y - 1; i > 0; i--)
+					for (int x = 1; x < 16; x++) {
+						if (buffer[i][x] == 'X')
+						{
+							buffer[i + 1][x] = buffer[i][x];
+							buffer[i][x] = '.';
+						}
+					}
 		}
 		counter = 0;
 	}
 	mScore += lines * 100;
+	if (oldscore < mScore)
+	{
+		UpdateScore();
+	}
+}
+
+void Tetris_TS::UpdateScore(){
+	_itow(mScore, ISOCRE, 10);
+	for (int i = 0; i < 7; i++) {
+		buffer[1][18 + i] = SCORE[i];
+		if (iswdigit(ISOCRE[i]))
+			buffer[2][18 + i] = ISOCRE[i];
+	}
+}
+
+void Tetris_TS::UpdateNPiece(){
+	//Update next piece
+	for (int y = 0; y < 4; y++)
+		for (int x = 0; x < 4; x++)
+			buffer[7 + y][WIN_HEIGHT + x] = ((mShapes[mNextPiece][Rotate(x, y, mNextOrient)] == '.') ? ' ' : 'X');
+}
+
+void Tetris_TS::WriteToBuffer(){
+	for (int y = 0; y < WIN_HEIGHT; y++)
+		for (int x = 0; x < WIN_WIDTH; x++)
+			buffer[y][x] = GetChar(x, y);
 }
